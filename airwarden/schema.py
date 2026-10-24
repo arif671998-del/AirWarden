@@ -56,6 +56,7 @@ class Frame:
     pmf: Optional[bool] = None   # 802.11w Protected Management Frames
     reason: Optional[int] = None # deauth/disassoc reason code
     rssi: Optional[int] = None   # dBm, from radiotap
+    seq: Optional[int] = None    # 802.11 sequence number (for spoof detection)
 
     @property
     def bssid(self) -> str:
@@ -77,6 +78,10 @@ class AttackType(str, Enum):
     EVIL_TWIN = "evil_twin"
     ROGUE_AP = "rogue_ap"
     KARMA_PROBE = "karma_probe"
+    BEACON_FLOOD = "beacon_flood"
+    AUTH_FLOOD = "auth_flood"
+    SSID_TYPOSQUAT = "ssid_typosquat"
+    MAC_SPOOF = "mac_spoof"
 
 
 class Severity(str, Enum):

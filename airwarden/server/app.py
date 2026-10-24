@@ -31,6 +31,11 @@ SCENARIOS = {
     "deauth_flood": ("Deauth flood", "deauth_flood.pcap"),
     "evil_twin": ("Evil twin", "evil_twin.pcap"),
     "rogue_ap": ("Rogue + PMWANI AP", "rogue_ap.pcap"),
+    "karma": ("Karma / MANA", "karma.pcap"),
+    "beacon_flood": ("Beacon flood", "beacon_flood.pcap"),
+    "auth_flood": ("Auth / assoc flood", "auth_flood.pcap"),
+    "typosquat": ("SSID typosquat", "typosquat.pcap"),
+    "mac_spoof": ("MAC spoofing", "mac_spoof.pcap"),
 }
 
 

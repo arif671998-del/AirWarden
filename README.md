@@ -17,6 +17,11 @@ then re-checks that it worked.
 | **Deauth / disassoc flood** | burst of spoofed management frames in a sliding window | HIGH when it targets a trusted AP at high rate |
 | **Evil twin** (cloned SSID) | trusted SSID broadcast by an unauthorised BSSID | HIGH on security downgrade / PMWANI branding |
 | **Rogue AP** | unknown BSSID advertising a new SSID | HIGH if it abuses PMWANI branding |
+| **Karma / MANA** | one BSSID answering probes for many SSIDs | HIGH when it impersonates many networks |
+| **Beacon flood** | surge of distinct unknown APs in a short window | HIGH |
+| **Auth / assoc flood** | burst of auth/assoc requests from many MACs to one AP | HIGH when it targets a trusted AP |
+| **SSID typosquat** | look-alike of a trusted SSID (homoglyph / edit distance) | HIGH |
+| **MAC spoofing** | sequence-number regressions = two radios on one BSSID | HIGH on a trusted BSSID |
 
 Every verdict cites the captured frames behind it. **Weak evidence is labelled
 `needs_review`, never auto-reported as an attack**, and **no fix touches the
@@ -82,7 +87,8 @@ airwarden/
   schema.py       shared types (Frame, DetectionEvent, Verdict)
   pcap.py         stdlib pcap + radiotap + 802.11 codec
   baseline.py     SQLite trusted-AP store
-  detect/         deauth, eviltwin, rogue + engine
+  detect/         deauth, eviltwin, rogue, karma, beacon_flood,
+                  auth_flood, typosquat, mac_spoof + engine
   agent/          investigator (nodes), tools, llm, langgraph wrapper
   cli.py          `python3 -m airwarden`
 tests/            fixtures generator + detector/agent tests

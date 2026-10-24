@@ -26,15 +26,26 @@ TRUSTED = [
 ]
 
 
-def beacon(ssid, bssid, ch, sec, ts, rssi=-45, pmf=False):
+def beacon(ssid, bssid, ch, sec, ts, rssi=-45, pmf=False, seq=None):
     return Frame(ts=ts, ftype=FrameType.BEACON, addr1="ff:ff:ff:ff:ff:ff",
                  addr2=bssid, addr3=bssid, ssid=ssid, channel=ch,
-                 security=sec, pmf=pmf, rssi=rssi)
+                 security=sec, pmf=pmf, rssi=rssi, seq=seq)
 
 
 def deauth(bssid, client, ts, reason=7, rssi=-60):
     return Frame(ts=ts, ftype=FrameType.DEAUTH, addr1=client, addr2=bssid,
                  addr3=bssid, reason=reason, rssi=rssi)
+
+
+def probe_resp(ssid, bssid, ts, ch=6, sec=Security.OPEN, rssi=-55):
+    return Frame(ts=ts, ftype=FrameType.PROBE_RESP, addr1="aa:aa:aa:aa:aa:aa",
+                 addr2=bssid, addr3=bssid, ssid=ssid, channel=ch,
+                 security=sec, rssi=rssi)
+
+
+def auth(bssid, client, ts, rssi=-58):
+    return Frame(ts=ts, ftype=FrameType.AUTH, addr1=bssid, addr2=client,
+                 addr3=bssid, rssi=rssi)
 
 
 def benign_frames():
@@ -87,11 +98,72 @@ def rogue_ap_frames():
     return frames
 
 
+def karma_frames():
+    frames = benign_frames()
+    t = 25.0
+    bssid = "de:ad:ca:fe:00:99"
+    for name in ["Starbucks", "Airport_Free_WiFi", "HomeNet_5G",
+                 "JioFiber-1234", "Metro_WiFi", "Hotel_Guest"]:
+        frames.append(probe_resp(name, bssid, t))
+        t += 0.3
+    return frames
+
+
+def beacon_flood_frames():
+    frames = benign_frames()
+    t = 25.0
+    for k in range(24):                       # 24 fake APs in ~3s
+        bssid = "02:00:00:00:%02x:%02x" % (k // 256, k % 256)
+        frames.append(beacon("FreeWiFi_%02d" % k, bssid, [1, 6, 11][k % 3],
+                             Security.OPEN, t, rssi=-70))
+        t += 0.12
+    return frames
+
+
+def auth_flood_frames():
+    frames = benign_frames()
+    t = 25.0
+    target = "f4:f2:6d:11:22:33"             # CampusWiFi (trusted)
+    for k in range(40):                       # 40 auth reqs from random MACs
+        client = "02:11:00:00:%02x:%02x" % (k // 256, k % 256)
+        frames.append(auth(target, client, t))
+        t += 0.1
+    return frames
+
+
+def typosquat_frames():
+    frames = benign_frames()
+    t = 25.0
+    for k in range(8):                        # 'Campus-WiFi' mimics 'CampusWiFi'
+        frames.append(beacon("Campus-WiFi", "aa:bb:cc:00:00:01", 6,
+                             Security.OPEN, t, rssi=-60))
+        t += 0.5
+    return frames
+
+
+def mac_spoof_frames():
+    frames = benign_frames()
+    t = 25.0
+    target = "f4:f2:6d:11:22:33"             # genuine CampusWiFi BSSID
+    genuine_seq, spoof_seq = 100, 3000        # two interleaved counters
+    for k in range(10):
+        frames.append(beacon("CampusWiFi", target, 6, Security.WPA2, t,
+                             rssi=-45, seq=genuine_seq)); genuine_seq += 1; t += 0.2
+        frames.append(beacon("CampusWiFi", target, 6, Security.WPA2, t,
+                             rssi=-70, seq=spoof_seq)); spoof_seq += 1; t += 0.2
+    return frames
+
+
 FIXTURES = {
     "benign.pcap": benign_frames,
     "deauth_flood.pcap": deauth_flood_frames,
     "evil_twin.pcap": evil_twin_frames,
     "rogue_ap.pcap": rogue_ap_frames,
+    "karma.pcap": karma_frames,
+    "beacon_flood.pcap": beacon_flood_frames,
+    "auth_flood.pcap": auth_flood_frames,
+    "typosquat.pcap": typosquat_frames,
+    "mac_spoof.pcap": mac_spoof_frames,
 }
 
 

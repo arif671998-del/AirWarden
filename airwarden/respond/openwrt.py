@@ -56,6 +56,9 @@ class OpenWrtRouter:
         if fix.action == "notify_and_blocklist":
             bssid = fix.params.get("bssid", "")
             return [f"logger -t airwarden 'unauthorised AP {bssid} flagged for review'"]
+        if fix.action == "notify":
+            bssid = fix.params.get("bssid", "area")
+            return [f"logger -t airwarden 'advisory for {bssid}: operator action recommended'"]
         return [f"logger -t airwarden 'no automated action for {fix.action}'"]
 
     def _rollback_for(self, fix: RecommendedFix) -> List[str]:

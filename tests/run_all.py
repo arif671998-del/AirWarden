@@ -10,8 +10,8 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TESTS = ["test_detect.py", "test_agent.py", "test_respond.py",
-         "test_server.py", "test_graph.py"]
+TESTS = ["test_detect.py", "test_agent.py", "test_new_attacks.py",
+         "test_respond.py", "test_server.py", "test_graph.py"]
 
 
 def main():

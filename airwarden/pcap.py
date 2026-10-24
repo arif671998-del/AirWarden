@@ -227,7 +227,7 @@ def encode_frame(f: Frame) -> bytes:
     mac += mac_to_bytes(f.addr1 or "ff:ff:ff:ff:ff:ff")
     mac += mac_to_bytes(f.addr2 or "00:00:00:00:00:00")
     mac += mac_to_bytes(f.addr3 or "00:00:00:00:00:00")
-    mac += struct.pack("<H", 0)          # sequence control
+    mac += struct.pack("<H", ((f.seq or 0) & 0x0FFF) << 4)  # seq ctrl (frag 0)
     if f.ftype in (FrameType.DEAUTH, FrameType.DISASSOC):
         body = struct.pack("<H", f.reason or 7)
     elif f.ftype in (FrameType.BEACON, FrameType.PROBE_RESP):
@@ -262,6 +262,7 @@ def decode_frame(ts: float, raw: bytes, channel: Optional[int], rssi: Optional[i
     f.addr1 = bytes_to_mac(raw[4:10])
     f.addr2 = bytes_to_mac(raw[10:16])
     f.addr3 = bytes_to_mac(raw[16:22])
+    f.seq = (struct.unpack("<H", raw[22:24])[0] >> 4) & 0x0FFF
     body = raw[24:]
     if ftype in (FrameType.DEAUTH, FrameType.DISASSOC):
         if len(body) >= 2:

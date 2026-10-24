@@ -33,6 +33,11 @@ def _to_frame(pkt) -> Optional[Frame]:
     ftype = _SUBTYPE.get(d.subtype, FrameType.OTHER)
     f = Frame(ts=float(pkt.time), ftype=ftype,
               addr1=(d.addr1 or ""), addr2=(d.addr2 or ""), addr3=(d.addr3 or ""))
+    try:
+        if d.SC is not None:
+            f.seq = (int(d.SC) >> 4) & 0x0FFF
+    except Exception:
+        pass
     if pkt.haslayer(RadioTap):
         rt = pkt.getlayer(RadioTap)
         f.rssi = getattr(rt, "dBm_AntSignal", None)

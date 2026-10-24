@@ -23,7 +23,11 @@ PLAN: Dict[AttackType, List[str]] = {
                             "vendor_lookup", "signal_history", "portal_probe"],
     AttackType.DEAUTH_FLOOD: ["check_baseline", "deauth_profile", "pmf_support"],
     AttackType.ROGUE_AP: ["check_baseline", "vendor_lookup", "signal_history"],
-    AttackType.KARMA_PROBE: ["check_baseline", "signal_history"],
+    AttackType.KARMA_PROBE: ["check_baseline", "vendor_lookup", "signal_history"],
+    AttackType.SSID_TYPOSQUAT: ["check_baseline", "vendor_lookup", "signal_history"],
+    AttackType.BEACON_FLOOD: ["check_baseline"],
+    AttackType.AUTH_FLOOD: ["check_baseline"],
+    AttackType.MAC_SPOOF: ["check_baseline", "signal_history"],
 }
 
 _BASE_CONF = {Severity.HIGH: 0.55, Severity.MEDIUM: 0.40,
@@ -93,6 +97,31 @@ class Investigator:
                 conf += 0.25
             if "open_network" in detector_kinds:
                 conf += 0.10
+        elif event.attack == AttackType.KARMA_PROBE:
+            d = next((e for e in event.evidence
+                      if e.kind == "many_ssids_one_ap"), None)
+            if d and d.data.get("ssid_count", 0) >= 6:
+                conf += 0.20
+            else:
+                conf += 0.10
+        elif event.attack == AttackType.SSID_TYPOSQUAT:
+            d = next((e for e in event.evidence
+                      if e.kind == "lookalike_ssid"), None)
+            if d and d.data.get("match", "").startswith("homoglyph"):
+                conf += 0.25            # identical-looking name is a strong tell
+            else:
+                conf += 0.20
+        elif event.attack == AttackType.BEACON_FLOOD:
+            if "ap_surge" in detector_kinds:
+                conf += 0.25
+        elif event.attack == AttackType.AUTH_FLOOD:
+            if "request_burst" in detector_kinds:
+                conf += 0.20
+            if "targets_trusted_ap" in detector_kinds:
+                conf += 0.10
+        elif event.attack == AttackType.MAC_SPOOF:
+            if "seqnum_regression" in detector_kinds:
+                conf += 0.25
 
         conf = max(0.0, min(0.98, conf))
         if conf >= 0.80:
@@ -133,6 +162,36 @@ class Investigator:
                             f"to the operator; blocklist if it persists.",
                 target=event.bssid, reversible=True,
                 params={"bssid": event.bssid, "ssid": event.ssid})
+        if event.attack in (AttackType.KARMA_PROBE, AttackType.SSID_TYPOSQUAT):
+            return RecommendedFix(
+                action="block_bssid",
+                description=(f"Block impostor {event.bssid} and warn users"
+                             + (f" that '{event.ssid}' mimics a trusted network."
+                                if event.attack == AttackType.SSID_TYPOSQUAT
+                                else " — it impersonates many saved networks.")),
+                target=event.bssid, reversible=True,
+                params={"bssid": event.bssid, "ssid": event.ssid})
+        if event.attack == AttackType.AUTH_FLOOD:
+            return RecommendedFix(
+                action="notify",
+                description=f"Auth/assoc flood on {event.bssid}: enable AP-side "
+                            f"association rate-limiting / client isolation and "
+                            f"alert the operator (sources are likely spoofed).",
+                target=event.bssid, reversible=True, params={"bssid": event.bssid})
+        if event.attack == AttackType.BEACON_FLOOD:
+            return RecommendedFix(
+                action="notify",
+                description="Beacon flood in progress: hundreds of fake APs can't "
+                            "be blocked individually — move clients to a known "
+                            "5 GHz channel, keep PMF on, and locate the source.",
+                target="(area)", reversible=True, params={})
+        if event.attack == AttackType.MAC_SPOOF:
+            return RecommendedFix(
+                action="notify",
+                description=f"Two radios share BSSID {event.bssid}. Don't block it "
+                            f"(that also blocks the genuine AP) — verify 802.11w is "
+                            f"on, consider 802.1X, and physically locate the spoofer.",
+                target=event.bssid, reversible=True, params={"bssid": event.bssid})
         return None
 
     def _ssid_of(self, event: DetectionEvent) -> str:
