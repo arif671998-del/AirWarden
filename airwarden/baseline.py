@@ -57,7 +57,9 @@ CREATE INDEX IF NOT EXISTS idx_obs_ssid ON observation(ssid);
 
 class Baseline:
     def __init__(self, path: str = ":memory:"):
-        self.conn = sqlite3.connect(path)
+        # check_same_thread=False: the HTTP server handles requests on worker
+        # threads; callers serialise access (see server AppState.lock).
+        self.conn = sqlite3.connect(path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(SCHEMA)
         self.conn.commit()

@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AirWarden Console</title>
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#121821; --panel2:#0f141c; --line:#1f2a37;
+    --text:#e6edf3; --muted:#8b98a5; --accent:#35d0ba; --accent2:#2bb39f;
+    --high:#ff5d5d; --medium:#ffb020; --low:#5b8def; --ok:#39d98a;
+    --confirmed:#ff5d5d; --suspected:#ffb020; --review:#8b98a5; --benign:#39d98a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  header{display:flex;align-items:center;gap:14px;padding:16px 24px;
+    border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0f1620,#0b0f14)}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:19px;letter-spacing:.2px}
+  .logo .mark{width:26px;height:26px;border-radius:7px;
+    background:radial-gradient(circle at 30% 30%,var(--accent),#1b7f72);
+    box-shadow:0 0 18px rgba(53,208,186,.45)}
+  .tag{color:var(--muted);font-size:13px}
+  .pills{margin-left:auto;display:flex;gap:8px}
+  .pill{font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);
+    color:var(--muted);background:var(--panel)}
+  .pill.ok{color:var(--ok);border-color:#1e4030}
+  .wrap{display:grid;grid-template-columns:300px 1fr;gap:20px;padding:20px 24px;max-width:1280px;margin:0 auto}
+  @media(max-width:860px){.wrap{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .panel h2{margin:0 0 12px;font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+  .scn{display:flex;flex-direction:column;gap:8px}
+  .scn button{all:unset;cursor:pointer;padding:10px 12px;border-radius:10px;border:1px solid var(--line);
+    background:var(--panel2);color:var(--text);font-size:14px;transition:.15s}
+  .scn button:hover{border-color:var(--accent2)}
+  .scn button.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset;color:#fff}
+  .run{all:unset;cursor:pointer;margin-top:12px;display:block;text-align:center;
+    padding:11px;border-radius:10px;font-weight:600;color:#06231f;
+    background:linear-gradient(180deg,var(--accent),var(--accent2))}
+  .run:active{transform:translateY(1px)}
+  .ap{font-size:13px;padding:8px 0;border-bottom:1px dashed var(--line);color:var(--muted)}
+  .ap b{color:var(--text);font-weight:600}
+  .ap .mono{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+  .log{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted);white-space:pre-wrap}
+  .cards{display:flex;flex-direction:column;gap:14px}
+  .empty{color:var(--muted);text-align:center;padding:48px 0;border:1px dashed var(--line);border-radius:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-left-width:4px;border-radius:14px;padding:16px 18px}
+  .card.confirmed{border-left-color:var(--confirmed)}
+  .card.suspected{border-left-color:var(--suspected)}
+  .card.needs_review{border-left-color:var(--review)}
+  .card.benign{border-left-color:var(--benign)}
+  .crow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .atk{font-weight:700;font-size:16px;text-transform:capitalize}
+  .badge{font-size:11px;font-weight:700;letter-spacing:.5px;padding:3px 9px;border-radius:999px;text-transform:uppercase}
+  .badge.confirmed{background:rgba(255,93,93,.15);color:var(--confirmed)}
+  .badge.suspected{background:rgba(255,176,32,.15);color:var(--suspected)}
+  .badge.needs_review{background:rgba(139,152,165,.15);color:var(--review)}
+  .badge.benign{background:rgba(57,217,138,.15);color:var(--benign)}
+  .meta{color:var(--muted);font-size:13px;font-family:ui-monospace,Menlo,monospace;margin:6px 0 10px}
+  .conf{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+  .bar{width:90px;height:7px;border-radius:999px;background:var(--panel2);overflow:hidden;border:1px solid var(--line)}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--medium))}
+  .reason{font-size:14px;margin:4px 0 10px}
+  details{border-top:1px solid var(--line);padding-top:8px;margin-top:4px}
+  summary{cursor:pointer;color:var(--muted);font-size:13px;user-select:none}
+  .ev{font-size:13px;margin:8px 0;padding-left:14px;border-left:2px solid var(--line)}
+  .ev .k{color:var(--accent);font-family:ui-monospace,Menlo,monospace;font-size:12px}
+  .steps{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted);white-space:pre-wrap}
+  .fix{margin-top:12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px}
+  .fix h4{margin:0 0 6px;font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--accent)}
+  .fix p{margin:0 0 10px;font-size:14px}
+  .btns{display:flex;gap:8px}
+  .btns button{all:unset;cursor:pointer;padding:8px 16px;border-radius:9px;font-weight:600;font-size:13px}
+  .approve{background:var(--ok);color:#06231f}
+  .reject{background:transparent;border:1px solid var(--line)!important;color:var(--muted)}
+  .result{margin-top:10px;font-size:13px}
+  .cmds{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:#07100c;border:1px solid #16351f;
+    border-radius:8px;padding:10px;color:#9fe6bf;white-space:pre-wrap;margin:8px 0}
+  .state{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:3px 9px;border-radius:999px}
+  .state.verified{background:rgba(57,217,138,.15);color:var(--ok)}
+  .state.rejected{background:rgba(139,152,165,.15);color:var(--muted)}
+  .state.failed{background:rgba(255,93,93,.15);color:var(--high)}
+  .langtoggle{margin-left:8px;font-size:12px;color:var(--muted);cursor:pointer;text-decoration:underline}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><span class="mark"></span> AirWarden</div>
+  <span class="tag">AI-assisted Wi-Fi intrusion detection &amp; response</span>
+  <div class="pills">
+    <span class="pill" id="modePill">mode: —</span>
+    <span class="pill" id="tgPill">Telegram: —</span>
+  </div>
+</header>
+
+<div class="wrap">
+  <aside>
+    <div class="panel">
+      <h2>Scenario</h2>
+      <div class="scn" id="scn"></div>
+      <button class="run" id="runBtn">▶ Run scan</button>
+    </div>
+    <div class="panel" style="margin-top:16px">
+      <h2>Authorised baseline</h2>
+      <div id="aps"></div>
+    </div>
+    <div class="panel" style="margin-top:16px">
+      <h2>Activity</h2>
+      <div class="log" id="log"></div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="cards" id="cards">
+      <div class="empty">Pick a scenario and run a scan to see verdicts.</div>
+    </div>
+  </main>
+</div>
+
+<script>
+let selected = "evil_twin";
+const $ = s => document.querySelector(s);
+
+async function api(path, body){
+  const opt = body ? {method:"POST",headers:{"Content-Type":"application/json"},
+                      body:JSON.stringify(body)} : {};
+  const r = await fetch(path, opt);
+  return r.json();
+}
+
+function cap(s){return (s||"").replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase());}
+
+async function refresh(){
+  const st = await api("/api/state");
+  $("#modePill").textContent = "mode: " + st.mode;
+  $("#tgPill").textContent = "Telegram: " + (st.telegram ? "on" : "off");
+  $("#tgPill").className = "pill" + (st.telegram ? " ok":"");
+  // scenarios
+  const scn = $("#scn"); scn.innerHTML = "";
+  st.scenarios.forEach(s=>{
+    const b = document.createElement("button");
+    b.textContent = s.label; b.className = s.id===selected?"active":"";
+    b.onclick = ()=>{selected=s.id; refresh();};
+    scn.appendChild(b);
+  });
+  // baseline
+  $("#aps").innerHTML = st.trusted_aps.map(a=>
+    `<div class="ap"><b>${a.ssid}</b> · ch${a.channel||"?"} · ${a.security}
+     <div class="mono">${a.bssid} (${a.vendor})</div></div>`).join("");
+  $("#log").textContent = (st.log||[]).slice().reverse().join("\n");
+  renderCards(st.verdicts, st.verdicts_by_lang||{});
+}
+
+function renderCards(verdicts, langs){
+  const c = $("#cards");
+  if(!verdicts.length){c.innerHTML='<div class="empty">No events in this capture — traffic looks clean.</div>';return;}
+  c.innerHTML = "";
+  verdicts.forEach(v=>{
+    const e = v.event, lab = v.label;
+    const card = document.createElement("div");
+    card.className = "card " + lab;
+    const evs = v.evidence.map(x=>`<div class="ev"><span class="k">${x.kind}</span> — ${x.detail}</div>`).join("");
+    const steps = (v.investigation_steps||[]).join("\n");
+    const lang = langs[v.id]||{};
+    let fixHtml = "";
+    if(v.fix){
+      const st = v.response_state;
+      if(st==="verified"||st==="rejected"||st==="failed"){
+        fixHtml = `<div class="fix"><h4>Response</h4><p>${v.fix.description}</p>
+          <span class="state ${st}">${st}</span><div id="res-${v.id}"></div></div>`;
+      }else{
+        fixHtml = `<div class="fix"><h4>Proposed fix — needs your approval</h4>
+          <p>${v.fix.description}</p>
+          <div class="btns">
+            <button class="approve" onclick="approve('${v.id}')">✓ Approve &amp; apply</button>
+            <button class="reject" onclick="reject('${v.id}')">Reject</button>
+          </div><div id="res-${v.id}"></div></div>`;
+      }
+    }
+    card.innerHTML = `
+      <div class="crow">
+        <span class="atk">${cap(e.attack)}</span>
+        <span class="badge ${lab}">${cap(lab)}</span>
+        <span class="conf">confidence
+          <span class="bar"><i style="width:${Math.round(v.confidence*100)}%"></i></span>
+          ${Math.round(v.confidence*100)}%</span>
+      </div>
+      <div class="meta">${e.bssid}${e.ssid?" · '"+e.ssid+"'":""}${e.channel?" · ch"+e.channel:""}</div>
+      <div class="reason">${v.reasoning}</div>
+      <details><summary>Evidence &amp; investigation (${v.evidence.length} items)</summary>
+        ${evs}<div style="margin-top:8px;color:var(--muted);font-size:12px">AGENT STEPS</div>
+        <div class="steps">${steps}</div>
+      </details>
+      ${lang.en?`<details><summary>Operator alert (EN / हिंदी)</summary>
+        <div class="ev">${lang.en}</div><div class="ev">${lang.hi}</div></details>`:""}
+      ${fixHtml}`;
+    c.appendChild(card);
+  });
+}
+
+async function runScan(){
+  $("#runBtn").textContent = "Scanning…";
+  await api("/api/scan", {scenario:selected});
+  $("#runBtn").textContent = "▶ Run scan";
+  refresh();
+}
+async function approve(id){
+  const res = await api("/api/approve", {id});
+  const box = $("#res-"+id);
+  if(box){
+    const cmds = (res.apply&&res.apply.commands||[]).join("\n");
+    box.innerHTML = `<div class="cmds">${cmds}</div>
+      <div class="result">${res.verification&&res.verification.verified?"✓":"✗"}
+      ${res.verification?res.verification.note:""}</div>`;
+  }
+  setTimeout(refresh, 400);
+}
+async function reject(id){ await api("/api/reject", {id}); refresh(); }
+
+$("#runBtn").onclick = runScan;
+refresh();
+</script>
+</body>
+</html>
