@@ -90,6 +90,7 @@
   <div class="pills">
     <span class="pill" id="modePill">mode: —</span>
     <span class="pill" id="tgPill">Telegram: —</span>
+    <span class="pill" id="mailPill">Email: —</span>
   </div>
 </header>
 
@@ -135,6 +136,8 @@ async function refresh(){
   $("#modePill").textContent = "mode: " + st.mode;
   $("#tgPill").textContent = "Telegram: " + (st.telegram ? "on" : "off");
   $("#tgPill").className = "pill" + (st.telegram ? " ok":"");
+  $("#mailPill").textContent = "Email: " + (st.email ? "on" : "off");
+  $("#mailPill").className = "pill" + (st.email ? " ok":"");
   // scenarios
   const scn = $("#scn"); scn.innerHTML = "";
   st.scenarios.forEach(s=>{

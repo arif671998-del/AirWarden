@@ -24,7 +24,7 @@ from .schema import Frame
 from .baseline import Baseline
 from .detect import DetectionEngine
 from .agent import Investigator
-from .alert import telegram
+from . import alert
 from .capture.live import _to_frame
 
 _MARK = {"confirmed": "[!]", "suspected": "[?]", "needs_review": "[.]", "benign": "[ ]"}
@@ -99,8 +99,10 @@ def run_monitor(iface: str, baseline: Baseline, learn_seconds: int = 20,
                 print(f"      {v.reasoning}")
                 if v.fix:
                     print(f"      FIX: {v.fix.description}")
-                if telegram.send_verdict(v):
-                    print("      (alert sent to Telegram)")
+                    sent = alert.send_all(v)
+                    chans = [k for k, ok in sent.items() if ok]
+                    if chans:
+                        print(f"      (alert sent: {', '.join(chans)})")
                 print()
     except KeyboardInterrupt:
         print(f"\n[monitor] stopped. {len(reported)} distinct findings; "

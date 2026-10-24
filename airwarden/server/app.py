@@ -19,7 +19,8 @@ from ..baseline import Baseline
 from ..detect import DetectionEngine
 from ..agent import Investigator
 from ..respond import ApprovalManager, OpenWrtRouter
-from ..alert import telegram
+from .. import alert
+from ..alert import telegram, email_alert
 from ..alert.format import summarize
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -66,7 +67,7 @@ class AppState:
                                    f"{len(verdicts)} events")
         for v in verdicts:               # push alerts (no-op if unconfigured)
             if v.fix:
-                telegram.send_verdict(v)
+                alert.send_all(v)
         return {"scenario": scenario, "frames": len(frames),
                 "verdicts": [v.to_dict() for v in verdicts]}
 
@@ -89,6 +90,7 @@ class AppState:
                 "scenarios": [{"id": k, "label": v[0]} for k, v in SCENARIOS.items()],
                 "log": self.events_log[-20:],
                 "telegram": telegram.configured(),
+                "email": email_alert.configured(),
                 "mode": "live" if self.online else "dry-run",
                 "verdicts_by_lang": {
                     v.id: {"en": summarize(v, "en"), "hi": summarize(v, "hi")}
