@@ -71,6 +71,16 @@ def cmd_analyze(args):
     return 0
 
 
+def cmd_monitor(args):
+    from .monitor import run_monitor
+    b = Baseline(args.baseline or ":memory:")
+    channels = [int(c) for c in args.channels.split(",") if c.strip()] or None
+    run_monitor(args.iface, b, learn_seconds=args.learn_seconds,
+                interval=args.interval, window=args.window,
+                channels=channels, online=args.online)
+    return 0
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="airwarden")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -89,6 +99,19 @@ def main(argv=None):
     pl.add_argument("capture")
     pl.add_argument("--baseline", required=True)
     pl.set_defaults(func=cmd_learn)
+
+    pm = sub.add_parser("monitor", help="live passive detection on a monitor-mode iface")
+    pm.add_argument("iface", help="monitor-mode interface, e.g. wlan0mon")
+    pm.add_argument("--baseline", help="sqlite baseline db (default in-memory)")
+    pm.add_argument("--learn-seconds", type=int, default=20,
+                    help="listen this long first to learn the baseline (0 to skip)")
+    pm.add_argument("--interval", type=float, default=6, help="seconds per detection cycle")
+    pm.add_argument("--window", type=float, default=60, help="rolling analysis window (s)")
+    pm.add_argument("--channels", default="",
+                    help="comma-separated channels to hop, e.g. 1,6,11 (blank = current)")
+    pm.add_argument("--online", action="store_true",
+                    help="allow passive captive-portal probe")
+    pm.set_defaults(func=cmd_monitor)
 
     args = p.parse_args(argv)
     return args.func(args)
