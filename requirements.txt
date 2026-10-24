@@ -1,0 +1,19 @@
+# AirWarden core has NO third-party dependencies — it runs on a stock
+# Python 3.8+ install (stdlib: sqlite3, struct, http.server, urllib, json).
+#
+# Optional backends (install only what your deployment uses):
+#
+#   Live monitor-mode capture on real hardware:
+#       scapy>=2.5.0
+#
+#   Agent investigation under LangGraph (the deterministic engine runs
+#   without it; this makes the graph explicit):
+#       langgraph>=0.2.0
+#
+#   LLM narration (optional; pick one):
+#       # hosted, OpenAI-compatible: set OPENAI_API_KEY / OPENAI_BASE_URL
+#       # local/offline: run `ollama serve` and set OLLAMA_MODEL
+#
+# The FastAPI/React dashboard is optional; a dependency-free dashboard
+# (stdlib http.server + vanilla JS) is included for environments without
+# package installs.

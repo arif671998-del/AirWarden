@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.db
+*.sqlite
+.venv/
+venv/
+tests/fixtures/_*.pcap
+*.json
+!package.json
+.DS_Store
+node_modules/
