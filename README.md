@@ -1,95 +1,126 @@
 # AirWarden
 
-**AI-assisted Wi-Fi intrusion detection and response for small networks.**
-ChronoForge 2026 · Track: Cybersecurity · Team Vidyut
+**An AI security analyst for Wi-Fi — it detects attacks, investigates them with evidence, and applies an operator-approved, verified fix.**
 
-Wi-Fi attacks that steal logins in minutes go unnoticed on most small networks,
-because catching them needs radio-level monitoring *plus* an analyst — and
-campuses, hostels, PM-WANI hotspots, cafés and clinics have neither. AirWarden
-pairs a low-cost Wi-Fi sensor with an AI agent that investigates each alert,
-names the attack **with evidence**, and proposes a fix the operator approves —
-then re-checks that it worked.
+ChronoForge 2026 · Track: **Cybersecurity** · Team **Vidyut**
 
-## What it detects
+![AirWarden operator console](docs/images/console.png)
 
-| Attack | How | Severity logic |
-|---|---|---|
-| **Deauth / disassoc flood** | burst of spoofed management frames in a sliding window | HIGH when it targets a trusted AP at high rate |
-| **Evil twin** (cloned SSID) | trusted SSID broadcast by an unauthorised BSSID | HIGH on security downgrade / PMWANI branding |
-| **Rogue AP** | unknown BSSID advertising a new SSID | HIGH if it abuses PMWANI branding |
-| **Karma / MANA** | one BSSID answering probes for many SSIDs | HIGH when it impersonates many networks |
-| **Beacon flood** | surge of distinct unknown APs in a short window | HIGH |
-| **Auth / assoc flood** | burst of auth/assoc requests from many MACs to one AP | HIGH when it targets a trusted AP |
-| **SSID typosquat** | look-alike of a trusted SSID (homoglyph / edit distance) | HIGH |
-| **MAC spoofing** | sequence-number regressions = two radios on one BSSID | HIGH on a trusted BSSID |
+---
 
-Every verdict cites the captured frames behind it. **Weak evidence is labelled
-`needs_review`, never auto-reported as an attack**, and **no fix touches the
-network without operator approval** — then a re-scan verifies it.
+## The problem
 
-## Architecture
+Small networks — college campuses, hostels, PM-WANI public hotspots, cafés,
+clinics — get hit by Wi-Fi attacks that steal logins in minutes, and nobody
+notices. Catching them needs two things these operators don't have: radio-level
+monitoring **and** a security analyst to make sense of it.
 
-```
- capture            detect (rules)        investigate (agent)       respond
- ┌─────────┐        ┌───────────────┐     ┌──────────────────┐     ┌──────────────┐
- │ pcap /  │ Frame  │ deauth        │ evt │ plan → gather →   │ fix │ approve →    │
- │ monitor │──────▶ │ eviltwin      │────▶│ assess → recommend│────▶│ apply (SSH) →│
- │ mode    │        │ rogue         │     │ → explain (LLM?)  │     │ verify       │
- └─────────┘        └───────────────┘     └──────────────────┘     └──────────────┘
-      │                     │                      │                       │
-   802.11            SQLite baseline        confidence + evidence    OpenWrt UCI/ubus
-```
+## What AirWarden does
 
-The **detection core is dependency-free** (Python stdlib only). Capture, agent
-reasoning, response and alerting have optional backends (Scapy, LangGraph, SSH,
-LLM, Telegram) that light up when their dependencies/hardware are present — so
-the system runs and demos anywhere, and keeps working offline.
+A low-cost sensor (Raspberry Pi or laptop) plus an AI agent that acts as the
+missing analyst. For every alert it **detects → investigates → proposes a fix →
+verifies** — the full loop, where ordinary tools stop at the alert.
 
-## Quick start (no installs needed)
+- **Detects 8 attack classes** from captured 802.11 frames
+- **Investigates** each alert like an analyst (baseline check, beacon
+  comparison, vendor lookup, signal history, portal probe) and returns a
+  **verdict with a confidence score and the evidence behind it**
+- **Proposes a fix** on the operator's *own* router — applied **only after
+  approval**, then **re-scanned to confirm it worked**
+- **Bilingual alerts** (English + हिंदी) to a dashboard, email, and Telegram
+- **Responsible by design** — passive monitoring, management-frame metadata
+  only, **never transmits an attack frame**
+
+## Attack coverage
+
+| Attack | How it's detected |
+|---|---|
+| **Deauth / disassoc flood** | burst of spoofed management frames in a sliding window |
+| **Evil twin** (cloned SSID) | trusted SSID broadcast by an unauthorised BSSID (+ security downgrade / fake portal) |
+| **Rogue AP** | unknown BSSID advertising a new SSID (PMWANI-branded → escalated) |
+| **Karma / MANA** | one BSSID answering probe requests for many different SSIDs |
+| **Beacon flood** | surge of distinct unknown APs in a short window |
+| **Auth / assoc flood** | burst of auth/assoc requests from many MACs at one AP |
+| **SSID typosquat** | look-alike of a trusted SSID (homoglyph / edit distance) |
+| **MAC spoofing** | sequence-number regressions = two radios sharing one BSSID |
+
+Weak evidence is labelled **needs-review**, never reported as an attack. On
+clean traffic AirWarden stays silent — **zero false alarms**.
+
+## Quick start (no dependencies — Python 3.8+ stdlib only)
 
 ```bash
-# build the demo captures (synthetic, offline test data)
-python3 tests/make_fixtures.py
-
-# learn a baseline from clean traffic, then analyse an attack capture
-python3 -m airwarden analyze tests/fixtures/evil_twin.pcap \
-        --learn tests/fixtures/benign.pcap --no-llm
-
-# run the test suite
-python3 tests/test_detect.py && python3 tests/test_agent.py
+git clone https://github.com/arif671998-del/AirWarden && cd AirWarden
+python3 tests/make_fixtures.py        # build the demo captures
+python3 tests/run_all.py              # run the full test suite (all green)
+python3 -m airwarden.server.app       # open http://127.0.0.1:8080
 ```
 
-The `.pcap` fixtures are standard radiotap/802.11 and open in Wireshark.
+Then pick a scenario and **Run scan** — expand the evidence, click **Approve &
+apply**, and watch the fix apply (dry-run) and verify.
 
-## Safety & responsible use (ChronoForge rules 159–160)
+**CLI:**
+```bash
+python3 -m airwarden analyze tests/fixtures/evil_twin.pcap --learn tests/fixtures/benign.pcap
+```
+
+**Live sensor** (monitor-mode adapter, passive only):
+```bash
+sudo python3 -m airwarden monitor wlan0mon --learn-seconds 20 --channels 1,6,11
+```
+
+## How it works
+
+```
+ capture ──▶ detect (rules) ──▶ investigate (agent) ──▶ respond
+ pcap /       deauth, eviltwin,   plan → gather →         approve → apply (SSH)
+ monitor      rogue, karma,       assess → recommend      → verify (re-scan)
+ mode         beacon/auth flood,  → explain               OpenWrt UCI/ubus
+              typosquat, spoof    confidence + evidence
+```
+
+The **detection core has no third-party dependencies**. Optional backends —
+Scapy (live capture), LangGraph (explicit agent graph), a local/hosted LLM
+(reasoning), SMTP/Telegram (alerts) — light up when present, so the system runs
+and demos anywhere and keeps working offline. See
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and the demo walkthrough in
+[`docs/DEMO.md`](docs/DEMO.md).
+
+## Tech stack
+
+Python · Scapy (monitor-mode capture) · rule detectors + SQLite baseline ·
+LangGraph agent (+ optional local LLM via Ollama for offline sites) · OpenWrt
+UCI/ubus over SSH · stdlib HTTP dashboard + vanilla-JS console · email (SMTP) &
+Telegram alerts.
+
+## Responsible use
 
 - Monitoring is **passive**; only management-frame metadata is handled, never
   user traffic.
 - AirWarden **never transmits attack frames** and never sends counter-deauth.
-  The fixture generator writes frames to files only — no radio is touched.
-- Responses run **only on the operator's own router, only after approval**.
-- Attack simulation, if used on hardware, is confined to the team's own lab.
+  Test "attacks" are crafted offline into `.pcap` fixtures — no radio is touched.
+- Responses run **only on the operator's own router, only after approval**, and
+  every fix is re-verified.
 
-## How it maps to the judging criteria
-
-- **Technical implementation / rigor:** real 802.11 parsing, RSN/PMF analysis,
-  evidence-linked detection, a planning agent with confidence scoring.
-- **Functionality:** end-to-end pipeline with a passing test suite and a CLI.
-- **Innovation:** closes the loop — investigate → approve → verify — where
-  alert-only tools (Kismet, vendor WIPS consoles) stop at the alert.
-- **Impact / track alignment:** built for Indian public Wi-Fi (PMWANI), runs on
-  a Raspberry Pi, Hindi + English alerts.
-
-## Layout
+## Project layout
 
 ```
 airwarden/
-  schema.py       shared types (Frame, DetectionEvent, Verdict)
-  pcap.py         stdlib pcap + radiotap + 802.11 codec
-  baseline.py     SQLite trusted-AP store
-  detect/         deauth, eviltwin, rogue, karma, beacon_flood,
-                  auth_flood, typosquat, mac_spoof + engine
-  agent/          investigator (nodes), tools, llm, langgraph wrapper
-  cli.py          `python3 -m airwarden`
-tests/            fixtures generator + detector/agent tests
+  schema.py      shared types (Frame, DetectionEvent, Verdict)
+  pcap.py        stdlib pcap + radiotap + 802.11 codec
+  baseline.py    SQLite trusted-AP store
+  capture/       pcap replay + Scapy monitor-mode backend
+  detect/        8 detectors + engine
+  agent/         investigator (nodes), tools, llm, langgraph wrapper
+  respond/       OpenWrt SSH actions + approval/verification
+  alert/         EN/HI summaries, email + Telegram
+  server/        dashboard + JSON API
+  monitor.py     live capture→detect→investigate loop
+web/             operator console
+tests/           fixtures + 22 tests (run_all.py)
+docs/            ARCHITECTURE.md, DEMO.md
 ```
+
+## Team Vidyut
+
+Mohd Arif Khan (lead) · Rohit Kumar · Mehul Doshi
