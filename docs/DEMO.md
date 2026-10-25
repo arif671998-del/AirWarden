@@ -61,19 +61,6 @@ alerts go to a dashboard, Telegram, or email in English and Hindi. Passive
 monitoring, management frames only, never transmits an attack — built for
 Indian public Wi-Fi, PMWANI included."
 
-## Q&A prep (questions judges actually ask)
-
-- **How does the sensor see a standalone rogue AP?** Passive monitor mode —
-  every AP beacons ~10×/sec to anyone in range, connected or not. We listen;
-  the AP betrays itself. Range is per-sensor, so a campus uses several sensors
-  into one agent. A monitor card hears one channel at a time, so it hops 1/6/11.
-- **Who makes the authorised list?** The operator — by hand for a small site
-  (they know their own APs), or learn-and-confirm for a campus. A new unknown AP
-  becomes a one-click "add to baseline". (It's trust-on-first-use, like SSH.)
-- **Why not demo live attacks?** Deauth/evil-twin transmit frames that hit every
-  device in range — not a lab. We simulate with recorded captures instead;
-  responsible-use is a design rule, not an afterthought.
-
 ## Future work (the scalability slide)
 
 - More detectors: KRACK handshake replay, WPS brute-force, RTS/CTS virtual
