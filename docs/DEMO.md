@@ -1,63 +1,84 @@
-# AirWarden — 3-minute demo script
+# AirWarden — demo script (8 attacks)
 
-Runs entirely on recorded captures, no Wi-Fi hardware needed. One laptop.
+Runs entirely on recorded captures, no Wi-Fi hardware needed. One laptop,
+~4–5 minutes. Passive and lab-safe: nothing is ever transmitted.
 
-## Setup (once, before judging)
+## Setup (before judging)
 
 ```bash
 git clone https://github.com/arif671998-del/airwarden && cd airwarden
 python3 tests/make_fixtures.py          # build the demo captures
-python3 -m airwarden.server.app         # starts http://127.0.0.1:8080
+python3 tests/run_all.py                # optional: show all tests green
+python3 -m airwarden.server.app         # http://127.0.0.1:8080
 ```
-Open `http://127.0.0.1:8080` in a browser. (Optional: `export
-TELEGRAM_BOT_TOKEN=... TELEGRAM_CHAT_ID=...` before starting to show live
-Telegram alerts; optional `AIRWARDEN_LLM=ollama` for LLM-written reasoning.)
+Open `http://127.0.0.1:8080`. Optional extras, set *before* starting the server:
+`export AIRWARDEN_LLM=ollama` (AI-written reasoning), Telegram or email env vars
+(live alerts — the pills up top turn green). Keep Wireshark open on
+`tests/fixtures/evil_twin.pcap` as a prop: the captures are real 802.11.
 
-Keep a Wireshark window open on `tests/fixtures/evil_twin.pcap` as a prop —
-it shows the captures are real 802.11.
+## The flow
 
-## The script
+**0:00 — Problem.** "Small networks — campuses, hostels, PM-WANI hotspots,
+cafés — get hit by Wi-Fi attacks that steal logins in minutes, and nobody
+notices, because catching them needs radio monitoring *and* a security analyst.
+AirWarden is that analyst, on a Raspberry Pi."
 
-**0:00 — The problem (spoken, dashboard open).**
-"Small networks — campuses, hostels, PM-WANI hotspots, cafés — get hit by
-Wi-Fi attacks that steal logins in minutes, and nobody notices because
-catching them needs both radio monitoring and an analyst. AirWarden is that
-analyst. It runs on a Raspberry Pi."
+**0:30 — Baseline.** Point to the left panel. "These three APs are authorised.
+Anything else is a suspect."
 
-**0:25 — Baseline.** Point to the left panel. "These three are the authorised
-access points. Anything that doesn't match is a suspect."
+**0:45 — Evil twin (the investigation showcase).** Select **Evil twin → Run
+scan** → CONFIRMED 90%. Expand **Evidence & investigation**: "It cloned
+'CampusWiFi' from an unauthorised radio, and it's OPEN while the real one is
+WPA2 — a fake-portal pattern. Every verdict cites the frames, and these are the
+checks the agent ran *itself*: baseline, beacon comparison, vendor, signal,
+portal."
 
-**0:40 — Evil twin.** Select **Evil twin → Run scan**. A CONFIRMED card appears
-at 90%. "It found an access point broadcasting 'CampusWiFi' — but from an
-unauthorised radio, and it's OPEN while the real one is WPA2. That's a fake
-login portal pattern." Expand **Evidence & investigation**: "Every verdict
-cites the frames behind it, and these are the checks the agent ran itself —
-baseline, beacon comparison, vendor, signal, portal."
+**1:30 — Closing the loop.** Click **Approve & apply**. Show the UCI commands
+and the green **verified** badge. "Alert-only tools stop at the alert.
+AirWarden proposes a fix on the operator's own router, applies it only after
+approval — in dry-run here — then re-scans to confirm it worked."
 
-**1:30 — Closing the loop.** "Alert-only tools stop here. AirWarden proposes a
-fix." Click **Approve & apply**. Show the UCI commands and the green
-**verified** state. "It applied the fix on the operator's own router — in
-dry-run here — then re-scanned and confirmed the attack is gone. Nothing
-touches the network without approval."
+**2:15 — Typosquat (the clever one).** Run **SSID typosquat** → CONFIRMED 80%.
+"Subtler evil twin: 'Campus-WiFi' instead of 'CampusWiFi'. We catch look-alikes
+by homoglyph and edit-distance matching against the baseline — the branding
+trick that fools users."
 
-**2:10 — Deauth + PMWANI.** Run **Deauth flood** (CONFIRMED 98% → enable
-802.11w) and **Rogue + PMWANI AP** (the PMWANI-branded impostor is HIGH).
-"Built for Indian public Wi-Fi: an unknown AP using PMWANI branding is flagged
-immediately." Expand **Operator alert** to show the Hindi + English summary.
+**2:45 — Breadth sweep (one line each).** Run these in turn:
+- **Deauth flood** → 98%, fix: enable 802.11w.
+- **Karma / MANA** → one AP answering probes for 6 different networks.
+- **Beacon flood** → 24 fake APs in 3s.
+- **Auth / assoc flood** → table-exhaustion attack on CampusWiFi.
+- **MAC spoofing** → "two radios share one BSSID — we catch it from
+  sequence-number jumps. Note the fix is **advisory, not a block**: blocking
+  that MAC would also kill the real AP. The tool knows the difference."
 
-**2:40 — No false alarms.** Run **Normal traffic**: zero events. "On clean
-traffic it stays quiet — weak evidence is marked needs-review, never cried
-wolf as an attack."
+**3:45 — No false alarms.** Run **Normal traffic** → zero events. "On clean
+traffic it stays quiet. Weak evidence is marked needs-review, never cried wolf."
 
-**2:55 — Close.** "Detection runs offline on a Pi; only the reasoning calls a
-model, and even that falls back to a local one. Passive monitoring, management
-frames only, every response approved and verified."
+**4:00 — Close.** "Eight attack classes, each with evidence, a confidence
+score, and an approved, verified response. Detection runs offline on a Pi;
+alerts go to a dashboard, Telegram, or email in English and Hindi. Passive
+monitoring, management frames only, never transmits an attack — built for
+Indian public Wi-Fi, PMWANI included."
 
-## If asked
+## Q&A prep (questions judges actually ask)
 
-- **Live capture?** `capture/live.py` puts a monitor-mode adapter into the same
-  `Frame` stream via Scapy; the demo uses recordings for reliability.
-- **Why not transmit test attacks?** Responsible-use rule: AirWarden never
-  transmits attack frames. Fixtures are crafted offline and written to pcap.
-- **Scale?** Many sensors → one central agent; new attacks = a detector + agent
-  tool; the sensor can later run on the OpenWrt router itself.
+- **How does the sensor see a standalone rogue AP?** Passive monitor mode —
+  every AP beacons ~10×/sec to anyone in range, connected or not. We listen;
+  the AP betrays itself. Range is per-sensor, so a campus uses several sensors
+  into one agent. A monitor card hears one channel at a time, so it hops 1/6/11.
+- **Who makes the authorised list?** The operator — by hand for a small site
+  (they know their own APs), or learn-and-confirm for a campus. A new unknown AP
+  becomes a one-click "add to baseline". (It's trust-on-first-use, like SSH.)
+- **Why not demo live attacks?** Deauth/evil-twin transmit frames that hit every
+  device in range — not a lab. We simulate with recorded captures instead;
+  responsible-use is a design rule, not an afterthought.
+
+## Future work (the scalability slide)
+
+- More detectors: KRACK handshake replay, WPS brute-force, RTS/CTS virtual
+  jamming.
+- Multi-sensor mesh reporting to one central agent (campus-scale).
+- Sensor running directly on the OpenWrt router.
+- New attacks plug in as a detector + an agent tool — the architecture is built
+  for it (8 detectors today, all behind one `Frame` interface).
